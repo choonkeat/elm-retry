@@ -9,7 +9,7 @@ the policies fail too.
 @docs Policy, with
 
 
-# Common policies
+## Common policies
 
 @docs maxRetries, maxDuration, constantInterval, exponentialBackoff
 
@@ -21,8 +21,8 @@ import Task exposing (Task)
 import Time exposing (now)
 
 
-{-| A `Policy` is attached with a function that will return another `Policy` as a
-`Task` value.
+{-| A [`Policy`](#Policy) is attached with a function that will return another
+[`Policy`](#Policy) as a [`Task`](https://package.elm-lang.org/packages/elm/core/latest/Task#Task) value.
 
 The arguments of the function are
 
@@ -30,24 +30,22 @@ The arguments of the function are
   - `Policy x` the current policy; destructure to obtain the function to call
   - `x` last error from attempting `originalTask`
 
-Refer to `maxRetries` source code for a simple example.
+Refer to [`maxRetries`](#maxRetries) source code for a simple example.
 
 -}
 type Policy x
     = Policy (Int -> Policy x -> x -> Task x (Policy x))
 
 
-{-| Given a list of error handling `Policy` we can make our `originalTask` retry
-on failure until any one of the `Policy` fails.
-
-    policy =
-        [ Retry.maxDuration 7000
-        , Retry.exponentialBackoff { interval = 500, maxInterval = 3000 }
-        ]
+{-| Given a list of error handling [`Policy`](#Policy) we can make our `originalTask`
+retry on failure until any one of the [`Policy`](#Policy) fails.
 
     originalTask
-        |> Retry.with policy
-        |> Task.attempt DidTask
+        |> Retry.with
+            [ Retry.maxDuration 7000
+            , Retry.exponentialBackoff { interval = 500, maxInterval = 3000 }
+            ]
+        |> Task.attempt DidOriginalTask
 
 -}
 with : List (Policy x) -> Task x a -> Task x a
@@ -70,7 +68,7 @@ with errTasks originalTask =
         |> Task.attempt DidOriginalTask
 
 NOTE: The code above does NOT sleep between retries; best to combine with
-`constantInterval` or `exponentialBackoff`
+[`constantInterval`](#constantInterval) or [`exponentialBackoff`](#exponentialBackoff)
 
 -}
 maxRetries : Int -> Policy x
@@ -92,7 +90,7 @@ maxRetries int =
         |> Task.attempt DidOriginalTask
 
 NOTE: The code above does NOT sleep between retries; best to combine with
-`constantInterval` or `exponentialBackoff`
+[`constantInterval`](#constantInterval) or [`exponentialBackoff`](#exponentialBackoff)
 
 -}
 maxDuration : Int -> Policy x
@@ -118,7 +116,7 @@ maxDuration duration =
         |> Task.attempt DidOriginalTask
 
 NOTE: The code above will keep retrying `originalTask`; best to combine with
-`maxRetries` or `maxDuration`
+[`maxRetries`](#maxRetries) or [`maxDuration`](#maxDuration)
 
 -}
 constantInterval : Float -> Policy x
@@ -138,7 +136,7 @@ algorithim is based off [https://github.com/cenkalti/backoff](https://github.com
         |> Task.attempt DidOriginalTask
 
 NOTE: The code above will keep retrying `originalTask`; best to combine with
-`maxRetries` or `maxDuration`
+[`maxRetries`](#maxRetries) or [`maxDuration`](#maxDuration)
 
 -}
 exponentialBackoff : { interval : Float, maxInterval : Float } -> Policy x
