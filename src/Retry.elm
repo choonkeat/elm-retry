@@ -1,6 +1,8 @@
 module Retry exposing
     ( Policy(..), with
     , maxRetries, maxDuration, constantInterval, exponentialBackoff
+    , TaskWithRetry, retry, toTask
+    , withConstantInterval, withExponentialBackoff, withMaxDuration, withMaxRetries
     )
 
 {-| Add retries to a task, based on a list of retry policies, until any one of
@@ -12,6 +14,16 @@ the policies fail too.
 ## Common policies
 
 @docs maxRetries, maxDuration, constantInterval, exponentialBackoff
+
+
+# Pipelining API
+
+@docs TaskWithRetry, retry, toTask
+
+
+## Pipelined policies
+
+@docs withConstantInterval, withExponentialBackoff, withMaxDuration, withMaxRetries
 
 -}
 
@@ -169,3 +181,69 @@ nextIntervalGenerator { randomizationFactor, multiplier, interval } =
     in
     Random.float 0 1
         |> Random.map (\randf -> multiplier * (minInterval + (randf * (maxInterval - minInterval + 1))))
+
+
+
+-- Pipelining
+
+
+{-| A Task with a list of [`Policy`](#Policy) attached.
+-}
+type TaskWithRetry x a
+    = TaskWithRetry (List (Policy x)) (Task x a)
+
+
+{-| Converts a [`Task`](https://package.elm-lang.org/packages/elm/core/latest/Task#Task)
+into a [`TaskWithRetry`](#TaskWithRetry) to add error handling policies
+
+    Retry.retry originalTask
+        |> withMaxRetries 5
+        |> withConstantInterval 500
+
+-}
+retry : Task x a -> TaskWithRetry x a
+retry originalTask =
+    TaskWithRetry [] originalTask
+
+
+{-| Converts a [`TaskWithRetry`](#TaskWithRetry) back into a [`Task`](https://package.elm-lang.org/packages/elm/core/latest/Task#Task)
+so we can perform our regular [`Task.attempt`](https://package.elm-lang.org/packages/elm/core/latest/Task#attempt)
+
+    Retry.retry originalTask
+        |> withMaxRetries 5
+        |> withConstantInterval 500
+        |> Retry.toTask
+        |> Task.attempt DidOriginalTask
+
+-}
+toTask : TaskWithRetry x a -> Task x a
+toTask (TaskWithRetry errTasks originalTask) =
+    with errTasks originalTask
+
+
+{-| adds [`maxRetries`](#maxRetries) policy in pipeline mode. Use in conjunction with [`retry`](#retry)
+-}
+withMaxRetries : Int -> TaskWithRetry x a -> TaskWithRetry x a
+withMaxRetries int (TaskWithRetry errTasks originalTask) =
+    TaskWithRetry (maxRetries int :: errTasks) originalTask
+
+
+{-| adds [`maxDuration`](#maxDuration) policy in pipeline mode. Use in conjunction with [`retry`](#retry)
+-}
+withMaxDuration : Int -> TaskWithRetry x a -> TaskWithRetry x a
+withMaxDuration duration (TaskWithRetry errTasks originalTask) =
+    TaskWithRetry (maxDuration duration :: errTasks) originalTask
+
+
+{-| adds [`maxConstantInterval`](#maxConstantInterval) policy in pipeline mode. Use in conjunction with [`retry`](#retry)
+-}
+withConstantInterval : Float -> TaskWithRetry x a -> TaskWithRetry x a
+withConstantInterval duration (TaskWithRetry errTasks originalTask) =
+    TaskWithRetry (constantInterval duration :: errTasks) originalTask
+
+
+{-| adds [`exponentialBackoff`](#exponentialBackoff) policy in pipeline mode. Use in conjunction with [`retry`](#retry)
+-}
+withExponentialBackoff : { interval : Float, maxInterval : Float } -> TaskWithRetry x a -> TaskWithRetry x a
+withExponentialBackoff expCfg (TaskWithRetry errTasks originalTask) =
+    TaskWithRetry (exponentialBackoff expCfg :: errTasks) originalTask
